@@ -107,24 +107,14 @@ io.on('connection', socket => {
 
     socket.on('PLAYER_ALL_IN', gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            const player = clients[socket.id];
-            const opponent = games[gameId].players.find(player => player.id !== socket.id);
-
-            const playerTotalAmount = player.buyInAmount + player.betAmount;
-            const opponentTotalAmount = opponent.buyInAmount + opponent.betAmount;
-
-            if(playerTotalAmount > opponentTotalAmount) {
-                games[gameId].playerBet(games[gameId].currentTurn, opponentTotalAmount);
-            } else {
-                games[gameId].playerBet(games[gameId].currentTurn, clients[socket.id].buyInAmount);
-            }
+            games[gameId].playerAllIn(games[gameId].currentTurn);
             checkGameProcess(gameId);
         }
     });
 
     socket.on('PLAYER_CALL', gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            games[gameId].playerBet(games[gameId].currentTurn, games[gameId].raiseAmount);
+            games[gameId].playerCall(games[gameId].currentTurn);
             checkGameProcess(gameId);
         }
     });
