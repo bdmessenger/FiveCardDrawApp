@@ -47,9 +47,9 @@ class Player {
         return this.betAmount;
     }
 
-    allIn() {
+    allIn(amount = this.buyInAmount) {
         this.action = 'ALLIN';
-        this.setBetAmount(this.buyInAmount, false);
+        this.setBetAmount(amount, false);
         return this.betAmount;
     }
 
