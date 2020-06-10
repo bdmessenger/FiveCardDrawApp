@@ -50,9 +50,10 @@ class Poker {
             const dealer = this.selectNextDealer();
             this.currentTurn = dealer;
             this.raiseAmount = this.minBet;
+            if(this.players[dealer].buyInAmount < (this.minBet / 2)) this.players[dealer].replenishBuyInAmount();
             this.players[dealer].setBetAmount((this.minBet / 2), false);
-            this.players[dealer].betAmount = (this.minBet / 2);
             const bigBlind = dealer === 0 ? 1 : 0;
+            if(this.players[bigBlind].buyInAmount < this.minBet) this.players[bigBlind].replenishBuyInAmount();
             this.players[bigBlind].setBetAmount(this.minBet, false);
             this.potAmount = 0;
             return true;
