@@ -150,8 +150,12 @@ class Poker {
 
     playerBet(pIndex, amount) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
-            const playerBetAmount = this.players[pIndex].setBetAmount(amount);
-            this.addMessage(`${this.players[this.currentTurn].name} bets ${playerBetAmount}.`);
+            const player = this.players[pIndex];
+            if(player.buyInAmount === amount) {
+                return this.playerAllIn(pIndex);
+            }
+            let playerBetAmount = player.setBetAmount(amount);
+            this.addMessage(`${player.name} bets ${playerBetAmount}.`);
             this.resetOpponentActionIfBetIsHigher(pIndex, playerBetAmount);
             return true;
         }
@@ -165,34 +169,6 @@ class Poker {
             if(opponent.action !== 'ALLIN') opponent.idle();
         }
     }
-
-
-    // playerBet(pIndex, amount) {
-    //     if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
-    //         let playerBetAmount = 0;
-            
-    //         if(this.players[pIndex].buyInAmount === amount) {
-    //             playerBetAmount = this.players[pIndex].allIn();
-    //             this.addMessage(`${this.players[this.currentTurn].name} is all in.`);
-    //         }
-    //         else if(this.raiseAmount === amount) {
-    //             playerBetAmount = this.players[pIndex].call(this.raiseAmount);
-    //             this.addMessage(`${this.players[this.currentTurn].name} calls.`);
-    //         }
-    //         else {
-    //             playerBetAmount = this.players[pIndex].setBetAmount(amount);
-    //             this.addMessage(`${this.players[this.currentTurn].name} bets ${amount}.`);
-    //         }
-
-    //         if(playerBetAmount > this.raiseAmount) {
-    //             this.raiseAmount = playerBetAmount;
-    //             const opponent = this.players[pIndex === 0 ? 1 : 0];
-    //             if(opponent.action !== 'ALLIN') opponent.idle();
-    //         }
-    //         return true;
-    //     }
-    //     return false;
-    // }
 
     playerCheck(pIndex) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
