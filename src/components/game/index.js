@@ -1,5 +1,7 @@
 import React, {useState} from 'react';
 
+import numeral from 'numeral';
+
 import Player from './Player';
 import Button from '../utils/Button';
 import Modal from '../utils/Modal';
@@ -22,7 +24,7 @@ function Game(props) {
 
     const opponent = game.players.find(ele => ele.id !== player.id);
     const yourTurn = game.players[game.currentTurn].id === player.id;
-    const inGameControlsStatus = (game.process === 'WAITING_ON_BETS' || game.process === 'WAITING_ON_DISCARDS' || game.process === 'WAITING_ON_FINAL_BETS');
+    const inGameControlsStatus = ((game.process === 'WAITING_ON_BETS' || game.process === 'WAITING_ON_DISCARDS' || game.process === 'WAITING_ON_FINAL_BETS') && player.action === 'IDLE');
 
     const handleBetAmount = e => {
         const value = e.target.value === '' ? e.target.value : parseInt(e.target.value);
@@ -63,9 +65,11 @@ function Game(props) {
     return(
         <g id="game">
             <g id="messageBoard">
-                <line x1="30" x2="1200" y1="680" y2="680" stroke="white" strokeWidth={4}/>
-                <text x={620} y={740} fontSize={60} fill="rgba(255,255,255,0.9)" dominantBaseline="middle" textAnchor="middle">{game.messages && game.messages[game.messages.length - 2] && `${game.messages[game.messages.length - 2]}..`}</text>
-                <text x={620} y={850} fontSize={80} fill="white" dominantBaseline="middle" textAnchor="middle">{game.messages && game.messages[game.messages.length - 1]}</text>
+                <line x1="30" x2="1200" y1="655" y2="655" stroke="white" strokeWidth={4}/>
+                <line x1="505" x2="740" y1="720" y2="720" stroke="rgba(255,255,255,0.6)" strokeWidth="3"/>
+                <text x="620" y="700" fontSize="40" fill="rgba(255,255,255,0.9)" dominantBaseline="middle" textAnchor="middle">Pot: {game.potAmount <= 99999 ? numeral(game.potAmount).format('$0,0') : numeral(game.potAmount).format('$0.00a')}</text>
+                <text x={620} y={770} fontSize={50} fill="rgba(255,255,255,0.9)" dominantBaseline="middle" textAnchor="middle">{game.messages && game.messages[game.messages.length - 2] && `${game.messages[game.messages.length - 2]}..`}</text>
+                <text x={620} y={860} fontSize={73} fill="white" dominantBaseline="middle" textAnchor="middle">{game.messages && game.messages[game.messages.length - 1]}</text>
                 <line x1="30" x2="1200" y1="920" y2="920" stroke="white" strokeWidth={4}/>
             </g>
 
@@ -84,7 +88,7 @@ function Game(props) {
 
             <Player
                 x={300}
-                y={150} 
+                y={130} 
                 name={opponent.name}
                 buyInAmount={opponent.buyInAmount}
                 isDealer={opponent.isDealer}
@@ -92,6 +96,7 @@ function Game(props) {
                 isWinner={opponent.isWinner}
                 type="opponent"
                 hand={opponent.hand}
+                action={opponent.action}
                 turn={!yourTurn}
                 gameProcess={game.process}
                 setDiscardCards={setDiscardCards}
@@ -99,14 +104,15 @@ function Game(props) {
 
             <Player
                 x={300}
-                y={1460} 
+                y={1460}
                 name={player.name}
                 buyInAmount={player.buyInAmount}
                 isDealer={player.isDealer}
                 betAmount={player.betAmount}
                 isWinner={player.isWinner}
-                type="you"
                 hand={player.hand}
+                action={player.action}
+                type="you"
                 turn={yourTurn}
                 gameProcess={game.process}
                 setDiscardCards={setDiscardCards}
@@ -123,7 +129,7 @@ function Game(props) {
                                 <Button
                                     classname="svg-action-button"
                                     x={20}
-                                    y={1435}
+                                    y={1430}
                                     value="   Bet  "
                                     fill="gold"
                                     onClick={() => {

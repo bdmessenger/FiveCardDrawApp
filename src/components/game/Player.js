@@ -16,8 +16,18 @@ export default function Player(props) {
         hand = [],
         turn = false,
         gameProcess = 'IDLE',
-        setDiscardCards = null
+        setDiscardCards = null,
+        action = 'IDLE'
     } = props;
+
+    const actions = {
+        'BET': 'Raise',
+        'ALLIN': 'All-In',
+        'CHECK': 'Check',
+        'FOLD': 'Fold',
+        'CALL': 'Call',
+        'IDLE': isDealer ? 'Small Blind' : 'Big Blind'
+    };
 
     return(
         <g id={type === 'you' ? 'yourPlayer' : 'opponentPlayer'} transform={`translate(${x},${y}) scale(${scale}, ${scale})`}>
@@ -88,10 +98,18 @@ export default function Player(props) {
 
             <g transform={`${type === 'you' ? 'translate(-40,5) scale(1.2,1.2)' : 'translate(-10,0) scale(1.1,1.1)'}`}>
                 {
-                    betAmount !== 0 &&
-                    <g className="playerBet" transform={`translate(-20, ${type === 'you' ? '-240' : '0'})`}>
-                        <rect fill="#94d3ac" x={170} rx={50} y={110} width={300} height={80}/>
-                        <text x="315" y="155" fontSize="50" dominantBaseline="middle" textAnchor="middle">Bet: {numeral(betAmount).format(betAmount > 99999 ? '$0.00 a' : '$0,0')}</text>
+                    (betAmount !== 0 || action === 'CHECK' || action === 'FOLD')  &&
+                    <g className="playerAction" transform={`translate(-20, ${type === 'you' ? '-240' : '0'})`}>
+                        <rect fill="#94d3ac" x={160} rx={50} y={110} width={320} height={80}/>
+                        {
+                            betAmount !== 0 ? 
+                            <>
+                                <text x="315" y="130" fontSize="30" dominantBaseline="middle" textAnchor="middle">{actions[action]}</text>
+                                <text x="315" y="165" fontSize="40" dominantBaseline="middle" textAnchor="middle">Bet: {numeral(betAmount).format(betAmount > 99999 ? '$0.00 a' : '$0,0')}</text>
+                            </>
+                            :
+                            <text x="315" y="155" fontSize="50" dominantBaseline="middle" textAnchor="middle">{actions[action]}</text>
+                        }
                     </g>
                 }
                 

@@ -1,4 +1,4 @@
-import React, {useContext, useEffect} from 'react';
+import React, {useState, useContext, useEffect} from 'react';
 import { store } from '../store';
 
 import Game from './game';
@@ -9,6 +9,14 @@ import LobbyModal from './LobbyModal';
 function App() {
     const {socket, state, dispatch} = useContext(store);
     const {player, game} = state;
+
+    const [displayName, setDisplayName] = useState('');
+
+    // useEffect(() => {
+    //     if(state.game) {
+    //         console.log(state);
+    //     }
+    // }, [state]);
 
     useEffect(() => {
         socket.on('DISPATCH_SERVER_STATE', ({player, game, hideOpponentCards = true}) => {
@@ -26,8 +34,9 @@ function App() {
     }, []);
 
     const handleNameConfirm = (name) => {
-        if(name !== '') {
-            socket.emit('PLAYER_JOINED_IN', name);
+        const displayName = name.trim();
+        if(displayName !== '') {
+            socket.emit('PLAYER_CREATED', displayName);
         }
     }
 
@@ -40,7 +49,9 @@ function App() {
                     content={
                         !player ?
                         <CreateDisplayName
-                        handleNameConfirm={handleNameConfirm}
+                            handleNameConfirm={handleNameConfirm}
+                            displayName={displayName}
+                            setDisplayName={setDisplayName}
                         />
                         : 
                         <LobbyModal player={player} game={game} socket={socket} />

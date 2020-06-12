@@ -1,4 +1,13 @@
 const Hand = require('pokersolver').Hand;
+function sleep(ms = 0) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+async function confirmActionAndBroadcast(cb) {
+    cb();
+    return await sleep(2000);
+}
+
 
 class Poker {
     constructor(id, hostPlayer, deck, minBet = 100){
@@ -116,7 +125,15 @@ class Poker {
         }
     }
 
-    playerAllIn(pIndex) {
+    resetOpponentActionIfBetIsHigher(pIndex, playerBetAmount) {
+        if(playerBetAmount > this.raiseAmount) {
+            this.raiseAmount = playerBetAmount;
+            const opponent = this.players[pIndex === 0 ? 1 : 0];
+            if(opponent.action !== 'ALLIN') opponent.idle();
+        }
+    }
+
+    async playerAllIn(pIndex, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             let amount = 0;
             const player = this.players[pIndex];
@@ -133,62 +150,63 @@ class Poker {
 
             const playerBetAmount = player.allIn(amount);
             this.addMessage(`${this.players[pIndex].name} is all in.`);
+            await confirmActionAndBroadcast(cb);
             this.resetOpponentActionIfBetIsHigher(pIndex, playerBetAmount);
             return true;
         }
         return false;
     }
 
-    playerCall(pIndex) {
+    
+
+    async playerCall(pIndex, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             this.players[pIndex].call(this.raiseAmount);
             this.addMessage(`${this.players[pIndex].name} calls.`);
+            await confirmActionAndBroadcast(cb);
             return true;
         }
         return false;
     }
 
-    playerBet(pIndex, amount) {
+    async playerBet(pIndex, amount, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             const player = this.players[pIndex];
             if(player.buyInAmount === amount) {
                 return this.playerAllIn(pIndex);
             }
             let playerBetAmount = player.setBetAmount(amount);
-            this.addMessage(`${player.name} bets ${playerBetAmount}.`);
+            this.addMessage(`${player.name} bets $${playerBetAmount}.`);
+            await confirmActionAndBroadcast(cb);
             this.resetOpponentActionIfBetIsHigher(pIndex, playerBetAmount);
             return true;
         }
         return false;
     }
 
-    resetOpponentActionIfBetIsHigher(pIndex, playerBetAmount) {
-        if(playerBetAmount > this.raiseAmount) {
-            this.raiseAmount = playerBetAmount;
-            const opponent = this.players[pIndex === 0 ? 1 : 0];
-            if(opponent.action !== 'ALLIN') opponent.idle();
-        }
-    }
+    
 
-    playerCheck(pIndex) {
+    async playerCheck(pIndex, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             this.players[pIndex].check();
             this.addMessage(`${this.players[pIndex].name} checks.`);
+            await confirmActionAndBroadcast(cb);
             return true;
         }
         return false;
     }
 
-    playerFold(pIndex) {
+    async playerFold(pIndex, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             this.players[pIndex].fold();
             this.addMessage(`${this.players[pIndex].name} folds.`);
+            await confirmActionAndBroadcast(cb);
             return true;
         }
         return false;
     }
 
-    playerDiscards(pIndex, handIndexes) {
+    playerDiscards(pIndex, handIndexes, cb) {
         if(this.players.length === 2 && pIndex < 2 && pIndex > -1) {
             this.players[pIndex].discards(handIndexes);
             this.addMessage(`${this.players[pIndex].name} discards ${handIndexes.length} card(s).`);
@@ -280,7 +298,7 @@ class Poker {
         return false;
     }
 
-    processing(callback, lastProcess = this.process) {
+    async processing(callback, lastProcess = this.process) {
         if(this.players.length === 2) {
             switch(this.process) {
                 case 'WAITING_ON_FINAL_BETS':
@@ -290,11 +308,9 @@ class Poker {
                         this.emptyBetsToPot();
                         if(this.process === 'WAITING_ON_BETS') {
                             this.process = 'DRAWING_CARDS';
-                            callback();
                             return this.processing(callback, 'WAITING_ON_BETS');
                         } else {
                             this.process = 'SHOWDOWN';
-                            callback();
                             return this.processing(callback);
                         }
                     }
@@ -302,14 +318,19 @@ class Poker {
                     callback();
                     return this.process;
                 case 'DRAWING_CARDS':
+                    this.addMessage('Drawing Cards.');
+                    await confirmActionAndBroadcast(callback);
                     this.drawCardsForPlayers();
-                    this.switchTurn();
                     this.resetPlayersActions();
                     if(lastProcess === 'WAITING_ON_BETS') {
+                        this.addMessage('Prepare To Discard.');
                         this.process = 'WAITING_ON_DISCARDS';
                     } else if (lastProcess === 'WAITING_ON_DISCARDS') {
+                        this.addMessage('Prepare To Place Final Bets.');
                         this.process = 'WAITING_ON_FINAL_BETS';
                     }
+
+                    this.switchTurn();
 
                     if(lastProcess === 'WAITING_ON_DISCARDS' && this.players.some(player => player.action === 'ALLIN')) {
                         this.process = 'SHOWDOWN';
@@ -329,12 +350,13 @@ class Poker {
                     callback();
                     return this.process;
                 case 'SHOWDOWN':
+                    this.resetPlayersActions();
                     this.determineWinner();
                     callback(false);
                     setTimeout(() => {
                         this.newRound();
                         callback();
-                    }, 10000);
+                    }, 8000);
                 default:
                     return new Error('Invalid Game Process...');
             }

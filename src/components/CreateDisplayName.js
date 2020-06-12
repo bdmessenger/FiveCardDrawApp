@@ -1,10 +1,8 @@
-import React, {useState} from 'react';
+import React from 'react';
 import Button from './utils/Button';
 
 export default function CreateDisplayName(props) {
-    const {handleNameConfirm} = props;
-    const [name, setName] = useState('');
-
+    const {displayName, setDisplayName, handleNameConfirm} = props;
     
 
     return(
@@ -20,9 +18,9 @@ export default function CreateDisplayName(props) {
                     className="focus:outline-none border border-gray-500 px-1" 
                     type="text" 
                     placeholder="display name..." 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    maxLength="15"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    maxLength="13"
                     size={13}
                 />
             </foreignObject>
@@ -32,7 +30,7 @@ export default function CreateDisplayName(props) {
                 value="Join In"
                 fill="magenta"
                 textFill="white"
-                onClick={() => handleNameConfirm(name)}
+                onClick={() => handleNameConfirm(displayName)}
             />
         </g>
     );

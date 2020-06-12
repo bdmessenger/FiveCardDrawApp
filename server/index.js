@@ -14,6 +14,8 @@ const Poker = require('./classes/poker');
 const clients = {};
 const games = {};
 
+const passCodes = {};
+
 const PORT = process.env.PORT || 3000;
 
 
@@ -27,28 +29,56 @@ if (process.env.NODE_ENV === 'production') {
 
 io.on('connection', socket => {
 
-    /* 
-        Once the client has submitted a display name, the socket event is called and it will either create
-        a new game or allow them to join into a game that has been created by another client. After the
-        event has been called, the client is redirected to a waiting room (lobby).
+    /*
+        The socket event below will create a player object after the client submits a display name for
+        their player. After creation, client is redirected to the main menu with two options availble 
+        to click on. The 'Host' button will create a game and generate a pass-code for another client 
+        to use in order to join. The 'Join' button will require the client to submit a pass-code for entry
+        to a host's game.
     */
-    socket.on('PLAYER_JOINED_IN', name => {
-        const gameId = Object.keys(games).find(key => games[key].players.length < 2) || uuid();
 
-        clients[socket.id] = new Player(socket.id, name, gameId, false);
-        socket.gameID = gameId;
-
-        if(!games.hasOwnProperty(gameId)) {
-            games[gameId] = new Poker(gameId, clients[socket.id], new Deck);
-            clients[socket.id].isHost = true;
-        } else {
-            games[gameId].addPlayer(clients[socket.id]);
-        }
-
-        socket.join(gameId, () => {
-            broadcastToPlayers(gameId);
-        });
+    socket.on('PLAYER_CREATED', name => {
+        clients[socket.id] = new Player(socket.id, name, null, false);
+        socket.gameID = null;
+        socket.emit('DISPATCH_SERVER_STATE', {player: clients[socket.id], game: null});
     });
+
+    socket.on('CREATE_GAME', cb => {
+        if(clients.hasOwnProperty(socket.id)) {
+            const gameId = uuid();
+            const passCode = [...Array(2)].map(i => Math.random().toString(36).substring(2, 8)).join('');
+            games[gameId] = new Poker(gameId, clients[socket.id], new Deck);
+            passCodes[passCode] = gameId;
+            socket.join(gameId, () => {
+                clients[socket.id].isHost = true;
+                socket.gameID = gameId;
+                socket.passCode = passCode;
+                broadcastToPlayers(gameId);
+            });
+            return cb(passCode, true);
+        }
+        return cb(null, false);
+    });
+
+    socket.on('PLAYER_JOINED_GAME', (code, cb) => {
+        if(
+            clients.hasOwnProperty(socket.id) && 
+            passCodes.hasOwnProperty(code) &&
+            games.hasOwnProperty(passCodes[code])
+        ) {
+            const gameId = passCodes[code];
+            const game = games[gameId];
+            game.addPlayer(clients[socket.id]);
+            socket.join(gameId, () => {
+                socket.gameID = gameId;
+                socket.passCode = code;
+                broadcastToPlayers(gameId);
+            });
+            return cb(true);
+        }
+        return cb(false);
+    });
+
 
 
     /* 
@@ -66,6 +96,7 @@ io.on('connection', socket => {
         also be signed out and is redirected to the main menu. If both players leave the game, 
         the game object is deleted.
     */
+   
     socket.on('LEAVE_GAME', gameId => {
         if(games.hasOwnProperty(gameId)) {
             const game = games[gameId];
@@ -76,8 +107,14 @@ io.on('connection', socket => {
                 socket.to(gameId).emit('DISPATCH_SERVER_STATE', {player: game.players[0], game:games[gameId]});
             } else {
                 delete games[gameId];
+                delete passCodes[socket.passCode];
             }
-            socket.leave(gameId);
+            socket.leave(gameId, () => {
+                socket.gameId = null;
+                socket.passCode = null;
+            });
+            socket.emit('DISPATCH_SERVER_STATE', {player: null, game: null});
+        } else {
             socket.emit('DISPATCH_SERVER_STATE', {player: null, game: null});
         }
     });
@@ -89,47 +126,52 @@ io.on('connection', socket => {
         for its next process or it will give the other player their turn to play.
     */
 
-    socket.on('PLAYER_BET', ({gameId, betAmount}) => {
+    socket.on('PLAYER_BET', async ({gameId, betAmount}) => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)){
             const game = games[gameId];
-            game.playerBet(game.currentTurn, betAmount);
-
-            checkGameProcess(gameId);
+            if(await game.playerBet(game.currentTurn, betAmount, () => broadcastToPlayers(gameId))){
+                checkGameProcess(gameId);
+            }
         }
     });
 
-    socket.on('PLAYER_CHECK', gameId => {
+    socket.on('PLAYER_CHECK', async gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            games[gameId].playerCheck(games[gameId].currentTurn);
-            checkGameProcess(gameId);
+            if(await games[gameId].playerCheck(games[gameId].currentTurn, () => broadcastToPlayers(gameId))) {
+                checkGameProcess(gameId);
+            }
         }
     });
 
-    socket.on('PLAYER_ALL_IN', gameId => {
+    socket.on('PLAYER_ALL_IN', async gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            games[gameId].playerAllIn(games[gameId].currentTurn);
-            checkGameProcess(gameId);
+            if(await games[gameId].playerAllIn(games[gameId].currentTurn, () => broadcastToPlayers(gameId))){
+                checkGameProcess(gameId);
+            }
         }
     });
 
-    socket.on('PLAYER_CALL', gameId => {
+    socket.on('PLAYER_CALL', async gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            games[gameId].playerCall(games[gameId].currentTurn);
-            checkGameProcess(gameId);
+            if(await games[gameId].playerCall(games[gameId].currentTurn, () => broadcastToPlayers(gameId))) {
+                checkGameProcess(gameId);
+            }
         }
     });
 
-    socket.on('PLAYER_FOLD', gameId => {
+    socket.on('PLAYER_FOLD', async gameId => {
         if(clients.hasOwnProperty(socket.id) && games.hasOwnProperty(gameId)) {
-            games[gameId].playerFold(games[gameId].currentTurn);
-            checkGameProcess(gameId);
+            if(await games[gameId].playerFold(games[gameId].currentTurn, () => broadcastToPlayers(gameId))) {
+                checkGameProcess(gameId);
+            }
         }
     });
 
-    socket.on('PLAYER_DISCARDS', ({gameId, handIndexes}) => {
+    socket.on('PLAYER_DISCARDS', async ({gameId, handIndexes}) => {
         if(games.hasOwnProperty(gameId)) {
-            games[gameId].playerDiscards(games[gameId].currentTurn, handIndexes);
-            checkGameProcess(gameId);
+            if(games[gameId].playerDiscards(games[gameId].currentTurn, handIndexes, () => broadcastToPlayers(gameId))) {
+                checkGameProcess(gameId);
+            }
         }
     });
 
@@ -181,6 +223,7 @@ io.on('connection', socket => {
 
                 if(game.players.length === 0) {
                     delete games[client.gameId];
+                    delete passCodes[socket.passCode];
                 } else {
                     game.backToLobby();
                     socket.to(client.gameId).emit('DISPATCH_SERVER_STATE', {player: game.players[0], game:games[client.gameId]});
